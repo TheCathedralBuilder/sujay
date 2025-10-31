@@ -1,0 +1,738 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pro To‑Do App with Music</title>
+<script type="module">
+  import * as musicMetadata from 'https://cdn.jsdelivr.net/npm/music-metadata-browser/dist/music-metadata-browser.es.js';
+  window.musicMetadata = musicMetadata;
+</script>
+<style>
+/* --- DARK MODE (Default) --- */
+:root, body.dark{
+    --bg:#0f1724;
+    --card:#0b1220;
+    --text-color:#e6eef6;
+    --muted:#9aa4b2;
+    --accent:#60a5fa;
+    --accent-2:#7c3aed;
+    --placeholder-color: #334155;
+    --card-shadow: 0 6px 30px rgba(2,6,23,0.6);
+    --input-bg: transparent;
+    --task-bg: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.03));
+    --card-gradient: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.06));
+    --body-gradient: linear-gradient(180deg,#071028 0%,#081426 100%);
+    --border-color: rgba(255,255,255,0.04);
+    --due-soon: #f97316; /* Orange 600 */
+}
+
+/* --- LIGHT MODE --- */
+body.light{
+    --bg:#f8fafc;
+    --card:#ffffff;
+    --text-color:#1e293b;
+    --muted:#64748b;
+    --accent:#1d4ed8;
+    --accent-2:#9333ea;
+    --placeholder-color: #e2e8f0;
+    --card-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    --input-bg: #f1f5f9;
+    --task-bg: #f9fafb;
+    --card-gradient: #ffffff;
+    --body-gradient: linear-gradient(180deg,#f1f5f9 0%,#f8fafc 100%);
+    --border-color: #e2e8f0;
+    --due-soon: #f97316;
+}
+
+*{box-sizing:border-box}html,body{height:100%}
+body{
+    margin:0;
+    font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    background:var(--body-gradient); 
+    color:var(--text-color); 
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:flex-start;
+    padding:20px;
+    transition:background 0.8s ease, color 0.5s ease;
+}
+.app{width:100%;max-width:760px}
+.card{
+    background:var(--card-gradient); 
+    border-radius:12px;
+    padding:22px;
+    box-shadow:var(--card-shadow); 
+    margin-bottom:20px;
+    border: 1px solid var(--border-color);
+}
+h1,h2{margin:0 0 6px;font-size:20px;letter-spacing:0.4px; color: var(--text-color);}
+p.lead{margin:0 0 18px;color:var(--muted);font-size:13px}
+.input-row{display:flex;gap:10px}
+input.new-task{
+    flex:1;padding:12px 14px;border-radius:10px;
+    border:1px solid var(--border-color); 
+    background:var(--input-bg); 
+    color:inherit;font-size:15px;
+}
+button.add{padding:0 14px;border-radius:10px;border:0;background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#fff;font-weight:600}
+
+.controls{display:flex;justify-content:space-between;align-items:center;margin-top:16px}
+.filters{display:flex;gap:8px}
+.filter-btn{padding:6px 10px;border-radius:8px;border:0;background:transparent;color:var(--muted);font-size:13px}
+.filter-btn.active{background:var(--border-color);color:var(--text-color)} 
+
+.search-input { /* NEW STYLE */
+    width: 100%;
+    margin-bottom: 12px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color); 
+    background: var(--input-bg); 
+    color: inherit;
+    font-size: 14px;
+}
+
+.list{margin-top:18px;max-height:420px;overflow:auto;padding-right:6px}
+.task{
+    display:flex;align-items:center;gap:12px;padding:10px;border-radius:10px;margin-bottom:8px;
+    background:var(--task-bg); 
+    cursor: grab; /* Drag cursor */
+    transition: background 0.3s, transform 0.3s;
+}
+.task.dragging { /* NEW DRAG STYLE */
+    opacity: 0.5;
+    transform: scale(1.02);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+.task .checkbox{
+    width:18px;height:18px;border-radius:6px;
+    border:1px solid var(--border-color); 
+    display:flex;align-items:center;justify-content:center;cursor:pointer;
+    flex-shrink: 0;
+}
+.task.done .label{text-decoration:line-through;color:var(--muted)}
+.label{flex:1; display: flex; flex-direction: column;}
+.task-text {font-weight: 500;}
+.task-meta {font-size: 11px; color: var(--muted); margin-top: 2px;}
+.due-date {color: var(--due-soon); font-weight: 600;} /* NEW STYLE */
+.task-tag {
+    display: inline-block;
+    padding: 1px 6px;
+    margin-left: 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-color);
+    background: var(--accent);
+}
+.actions{display:flex;gap:8px}
+.icon-btn{background:transparent;border:0;color:var(--muted);cursor:pointer;padding:6px;border-radius:8px}
+.small{font-size:13px;color:var(--muted)}
+footer.tools{display:flex;justify-content:space-between;align-items:center;margin-top:14px}
+.btn-clear{
+    background:transparent;
+    border:1px solid var(--border-color); 
+    padding:8px 12px;border-radius:8px;color:var(--muted)
+}
+
+/* --- Music Player Styles (Unchanged) --- */
+#musicPlayerSection {
+    display: flex; 
+    flex-direction: column; 
+    gap: 15px; 
+    margin-top: 20px;
+    background:var(--card-gradient); 
+    border-radius: 12px;
+    padding: 22px;
+    box-shadow:var(--card-shadow);
+    border: 1px solid var(--border-color);
+}
+.player-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+#themeToggleBtn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 1.5em;
+    color: var(--text-color);
+    padding: 0;
+}
+.player-content {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    gap: 15px;
+    margin-top: 5px;
+}
+#albumCover{
+    width: 60px; 
+    height: 60px;
+    object-fit: cover;
+    border-radius: 8px; 
+    background-color: var(--placeholder-color); 
+    transition: transform 3s linear;
+    flex-shrink: 0; 
+}
+#albumCover.rotate{transform:rotate(360deg)}
+#playerControls {
+    flex-grow: 1; 
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+#playlistCount {
+    color: var(--muted);
+    font-size: 0.8em;
+    text-align: right;
+}
+#trackInfo{
+    text-align: left; 
+    display: none;
+    margin-bottom: 5px; 
+}
+.track-title{font-size:1em;font-weight:600;margin-bottom:2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+.track-artist{font-size:0.8em;color:var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+audio{width:100%;} 
+.manual-input {
+    display: flex;
+    gap: 10px;
+}
+.manual-input input {
+    flex: 1;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--input-bg);
+    color: inherit;
+    font-size: 14px;
+}
+@media (max-width: 520px) {
+    .manual-input {
+        flex-direction: column;
+    }
+    .player-content {
+        flex-direction: column;
+        align-items: center;
+    }
+    #trackInfo { text-align: center; } 
+    #albumCover { margin-bottom: 0px; } 
+}
+</style>
+</head>
+<body class="dark"> 
+<main class="app">
+<section class="card">
+<h1>Pro To‑Do App</h1>
+<p class="lead">Add tasks, reorder them with drag & drop, and listen to your local playlists.</p>
+<div class="input-row">
+<input class="new-task" id="newTaskInput" placeholder="Add a task, e.g. 'Email John about the project'" />
+<button class="add" id="addBtn">Add</button>
+</div>
+<input type="text" id="searchTaskInput" class="search-input" placeholder="Search tasks..." />
+
+<div class="controls">
+<div class="filters" role="tablist">
+<button class="filter-btn active" data-filter="all">All</button>
+<button class="filter-btn" data-filter="active">Active</button>
+<button class="filter-btn" data-filter="completed">Completed</button>
+</div>
+<div class="small" id="taskCount">0 items</div>
+</div>
+<div class="list" id="taskList" aria-live="polite"></div>
+<footer class="tools">
+<button class="btn-clear" id="clearCompleted">Clear completed</button>
+<div class="small">Tip: drag tasks to reorder them</div>
+</footer>
+</section>
+
+<section id="musicPlayerSection">
+    <div class="player-header">
+        <h2>Music Player</h2>
+        <button id="themeToggleBtn" aria-label="Toggle light and dark mode">
+            ☀️
+        </button>
+    </div>
+    
+    <input type="file" id="musicFile" accept="audio/*" multiple style="width:100%; margin-bottom: 5px;"/>
+    
+    <div class="manual-input">
+        <input type="text" id="manualTitle" placeholder="Manually set song title" />
+        <input type="text" id="manualArtist" placeholder="Manually set artist" />
+    </div>
+
+    <div class="player-content">
+        <img id="albumCover" alt="Album Cover" src="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==">
+        <div id="playerControls">
+            <div id="trackInfo">
+                <div class="track-title" id="trackTitle"></div>
+                <div class="track-artist" id="trackArtist"></div>
+                <div id="playlistCount"></div> 
+            </div>
+            <audio id="audioPlayer" controls></audio>
+        </div>
+    </div>
+</section>
+
+</main>
+
+<script>
+(async()=>{
+const musicMetadata = window.musicMetadata;
+
+// --- THEME LOGIC (Unchanged) ---
+const themeToggleBtn = document.getElementById('themeToggleBtn');
+const body = document.body;
+const THEME_STORAGE_KEY = 'app_theme';
+
+function setInitialTheme() {
+    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+    const initialTheme = savedTheme || 'dark';
+    body.className = initialTheme;
+    themeToggleBtn.textContent = initialTheme === 'dark' ? '☀️' : '🌙';
+}
+
+function toggleTheme() {
+    const currentTheme = body.classList.contains('dark') ? 'dark' : 'light';
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    
+    body.classList.remove(currentTheme);
+    body.classList.add(newTheme);
+    
+    localStorage.setItem(THEME_STORAGE_KEY, newTheme);
+    themeToggleBtn.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+}
+
+themeToggleBtn.addEventListener('click', toggleTheme);
+setInitialTheme(); 
+
+// --- TO-DO LOGIC (UPDATED FOR DRAG & DROP, SEARCH, CATEGORIES, DUE DATES) ---
+const STORAGE_KEY='todo_tasks_v1';
+const newTaskInput=document.getElementById('newTaskInput');
+const addBtn=document.getElementById('addBtn');
+const taskList=document.getElementById('taskList');
+const taskCount=document.getElementById('taskCount');
+const filters=document.querySelectorAll('.filter-btn');
+const clearCompleted=document.getElementById('clearCompleted');
+const searchTaskInput = document.getElementById('searchTaskInput'); // NEW
+let tasks=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');
+let currentFilter='all';
+let currentSearchTerm=''; // NEW
+
+function saveAndRender(){localStorage.setItem(STORAGE_KEY,JSON.stringify(tasks));render();}
+
+function getDueDateString(dateString) {
+    if (!dateString) return '';
+    const due = new Date(dateString);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); 
+    const diff = due.getTime() - today.getTime();
+    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+    
+    if (days < 0) return 'Overdue';
+    if (days === 0) return 'Due Today!';
+    if (days === 1) return 'Due Tomorrow';
+    return `Due in ${days} days`;
+}
+
+function addTask(text){
+    // Syntax for adding due date and tag: "Task text // [YYYY-MM-DD] #Tag"
+    const match = text.match(/\/\/\s*(\[\d{4}-\d{2}-\d{2}\])?\s*(#\w+)?/);
+    let taskText = text.trim();
+    let dueDate = null;
+    let tag = null;
+
+    if (match) {
+        taskText = text.substring(0, match.index).trim();
+        if (match[1]) {
+            dueDate = match[1].substring(1, 11);
+        }
+        if (match[2]) {
+            tag = match[2].substring(1); // Remove '#'
+        }
+    }
+    
+    if(!taskText) return;
+
+    const task={
+        id:Date.now(),
+        text:taskText,
+        done:false,
+        dueDate: dueDate, // NEW
+        tag: tag, // NEW
+    };
+    tasks.unshift(task);
+    saveAndRender();
+}
+
+function removeTask(id){tasks=tasks.filter(t=>t.id!==id);saveAndRender();}
+function toggleTask(id){tasks=tasks.map(t=>t.id===id?{...t,done:!t.done}:t);saveAndRender();}
+function editTask(id,newText){tasks=tasks.map(t=>t.id===id?{...t,text:newText.trim()}:t);saveAndRender();}
+function clearCompletedTasks(){tasks=tasks.filter(t=>!t.done);saveAndRender();}
+
+function render(){
+    taskList.innerHTML='';
+    
+    const searchTerm = currentSearchTerm.toLowerCase();
+
+    const filtered = tasks.filter(t => {
+        const matchesFilter = currentFilter==='all' ? true : currentFilter==='active' ? !t.done : t.done;
+        const matchesSearch = t.text.toLowerCase().includes(searchTerm) || (t.tag && t.tag.toLowerCase().includes(searchTerm));
+        return matchesFilter && matchesSearch;
+    });
+
+    if(filtered.length===0){
+        taskList.innerHTML='<div class="small" style="padding:12px;color:var(--muted)">No matching tasks.</div>'
+    } else {
+        filtered.forEach(t=>{
+            const el=document.createElement('div');
+            el.className='task'+(t.done?' done':'');
+            el.setAttribute('data-id', t.id); // NEW for drag/drop
+            el.setAttribute('draggable', 'true'); // NEW for drag/drop
+
+            const cb=document.createElement('div');
+            cb.className='checkbox';
+            cb.title='Toggle complete';
+            cb.addEventListener('click',()=>toggleTask(t.id));
+            cb.innerHTML=t.done?'✓':'';
+            
+            const label=document.createElement('div');
+            label.className='label';
+            label.title='Double-click to edit';
+            label.addEventListener('dblclick',()=>startEditing(el,t));
+            
+            const textEl = document.createElement('div');
+            textEl.className = 'task-text';
+            textEl.textContent = t.text;
+            
+            const metaEl = document.createElement('div');
+            metaEl.className = 'task-meta';
+            
+            let metaHTML = '';
+            if (t.tag) {
+                metaHTML += `<span class="task-tag" style="background:var(--accent);">${t.tag}</span>`;
+            }
+            if (t.dueDate) {
+                const dateString = getDueDateString(t.dueDate);
+                const isUrgent = dateString === 'Due Today!' || dateString === 'Due Tomorrow' || dateString === 'Overdue';
+                metaHTML += `<span class="due-date" style="${isUrgent ? 'color: var(--due-soon);' : ''}">${dateString}</span>`;
+            }
+            metaEl.innerHTML = metaHTML;
+            
+            label.append(textEl, metaEl);
+
+            const actions=document.createElement('div');actions.className='actions';
+            const editBtn=document.createElement('button');editBtn.className='icon-btn';editBtn.innerHTML='✏️';editBtn.title='Edit';editBtn.addEventListener('click',()=>startEditing(el,t));
+            const delBtn=document.createElement('button');delBtn.className='icon-btn';delBtn.innerHTML='🗑️';delBtn.title='Delete';delBtn.addEventListener('click',()=>removeTask(t.id));
+            actions.append(editBtn,delBtn);el.append(cb,label,actions);taskList.appendChild(el);
+            
+            // Re-apply drag/drop listeners after element creation
+            addDragListeners(el);
+        });
+    }
+    taskCount.textContent=`${tasks.filter(t=>!t.done).length} items left`;
+    filters.forEach(btn=>btn.classList.toggle('active',btn.dataset.filter===currentFilter));
+}
+
+function startEditing(containerEl,task){
+    const label=containerEl.querySelector('.label');
+    const input=document.createElement('input');
+    input.type='text';
+    
+    // Add original meta info back into the input for editing
+    let initialValue = task.text;
+    if (task.dueDate) initialValue += ` // [${task.dueDate}]`;
+    if (task.tag) initialValue += ` #${task.tag}`;
+
+    input.value=initialValue;
+    input.style.padding='8px';input.style.borderRadius='8px';input.style.flex='1';
+
+    function finish(save){
+        if(save){
+            // Reparse the input value to save date and tag
+            const inputVal = input.value;
+            const match = inputVal.match(/\/\/\s*(\[\d{4}-\d{2}-\d{2}\])?\s*(#\w+)?/);
+            let newText = inputVal.trim();
+            let newDueDate = null;
+            let newTag = null;
+
+            if (match) {
+                newText = inputVal.substring(0, match.index).trim();
+                if (match[1]) {
+                    newDueDate = match[1].substring(1, 11);
+                }
+                if (match[2]) {
+                    newTag = match[2].substring(1); 
+                }
+            }
+
+            tasks = tasks.map(t => t.id === task.id ? {
+                ...t, 
+                text: newText, 
+                dueDate: newDueDate, 
+                tag: newTag 
+            } : t);
+            saveAndRender();
+        } else {
+            render();
+        }
+    }
+
+    input.addEventListener('keydown',e=>{if(e.key==='Enter')finish(true);if(e.key==='Escape')finish(false);});
+    input.addEventListener('blur',()=>finish(true));
+    containerEl.replaceChild(input,label);
+    input.focus();
+    input.setSelectionRange(input.value.length,input.value.length);
+}
+
+// --- NEW DRAG & DROP FUNCTIONS ---
+let draggedItem = null;
+
+function addDragListeners(el) {
+    el.addEventListener('dragstart', handleDragStart);
+    el.addEventListener('dragover', handleDragOver);
+    el.addEventListener('dragleave', handleDragLeave);
+    el.addEventListener('drop', handleDrop);
+    el.addEventListener('dragend', handleDragEnd);
+}
+
+function getDragAfterElement(container, y) {
+    const draggableElements = [...container.querySelectorAll('.task:not(.dragging)')];
+
+    return draggableElements.reduce((closest, child) => {
+        const rect = child.getBoundingClientRect();
+        const offset = y - rect.top - rect.height / 2;
+        if (offset < 0 && offset > closest.offset) {
+            return { offset: offset, element: child };
+        } else {
+            return closest;
+        }
+    }, { offset: -Infinity }).element;
+}
+
+function handleDragStart(e) {
+    draggedItem = this;
+    // Set timeout to ensure style is applied after data transfer starts
+    setTimeout(() => this.classList.add('dragging'), 0); 
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', this.innerHTML);
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    const afterElement = getDragAfterElement(taskList, e.clientY);
+    const dragging = document.querySelector('.dragging');
+
+    if (afterElement == null) {
+        taskList.appendChild(dragging);
+    } else {
+        taskList.insertBefore(dragging, afterElement);
+    }
+}
+
+function handleDragLeave(e) {
+    // Clean up dragover visual effects if necessary
+}
+
+function handleDrop(e) {
+    e.stopPropagation();
+    
+    if (draggedItem !== this) {
+        // Find the IDs of the two tasks being swapped/repositioned
+        const draggedId = parseInt(draggedItem.getAttribute('data-id'));
+        const droppedOnId = parseInt(this.getAttribute('data-id'));
+
+        // Logic to reorder the tasks array
+        const draggedTask = tasks.find(t => t.id === draggedId);
+        const oldIndex = tasks.findIndex(t => t.id === draggedId);
+
+        // Remove the dragged task from its old position
+        tasks.splice(oldIndex, 1);
+
+        // Calculate the new index based on the DOM position
+        const newDOMIndex = [...taskList.children].findIndex(child => child === draggedItem);
+        
+        // Insert the dragged task at the new position
+        tasks.splice(newDOMIndex, 0, draggedTask);
+
+        // Save the new order
+        saveAndRender();
+    }
+    return false;
+}
+
+function handleDragEnd(e) {
+    this.classList.remove('dragging');
+    draggedItem = null;
+    // Rerender to ensure the list reflects the saved order and remove any temp DOM changes
+    // Note: The main logic is handled in handleDrop, this is primarily for cleanup.
+    // render(); 
+}
+// --- END DRAG & DROP FUNCTIONS ---
+
+
+// --- INITIALIZATION & EVENT LISTENERS ---
+addBtn.addEventListener('click',()=>{
+    addTask(newTaskInput.value);
+    newTaskInput.value='';
+});
+newTaskInput.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){
+        addTask(newTaskInput.value);
+        newTaskInput.value='';
+    }
+});
+filters.forEach(btn=>btn.addEventListener('click',()=>{
+    currentFilter=btn.dataset.filter;
+    render();
+}));
+clearCompleted.addEventListener('click',()=>clearCompletedTasks());
+
+// NEW: Search input listener
+searchTaskInput.addEventListener('input', (e) => {
+    currentSearchTerm = e.target.value;
+    render();
+});
+
+
+// --- MUSIC PLAYER LOGIC (Unchanged) ---
+
+const musicFile = document.getElementById('musicFile');
+const audioPlayer = document.getElementById('audioPlayer');
+const albumCover = document.getElementById('albumCover');
+const trackInfo = document.getElementById('trackInfo');
+const trackTitle = document.getElementById('trackTitle');
+const trackArtist = document.getElementById('trackArtist');
+const playlistCount = document.getElementById('playlistCount');
+const manualTitleInput = document.getElementById('manualTitle');
+const manualArtistInput = document.getElementById('manualArtist');
+const defaultCoverSrc = "data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==";
+
+let coverURL = null; 
+let playlist = [];      
+let currentTrackIndex = 0;
+
+function updatePlaylistDisplay() {
+    if (playlist.length > 0) {
+        playlistCount.textContent = `Track ${currentTrackIndex + 1} of ${playlist.length}`;
+    } else {
+        playlistCount.textContent = '';
+        trackInfo.style.display = 'none';
+        albumCover.src = defaultCoverSrc;
+        albumCover.classList.remove('rotate');
+        manualTitleInput.value = '';
+        manualArtistInput.value = '';
+    }
+}
+
+function displayTrackInfo(title, artist, coverData) {
+    albumCover.classList.remove('rotate');
+    if (coverURL) {
+        URL.revokeObjectURL(coverURL);
+        coverURL = null;
+    }
+
+    trackTitle.textContent = title;
+    trackArtist.textContent = artist;
+    trackInfo.style.display = 'block';
+    albumCover.style.display = 'block';
+
+    if (coverData) {
+        const picture = coverData;
+        const blob = new Blob([picture.data], { type: picture.format });
+        coverURL = URL.createObjectURL(blob);
+        albumCover.src = coverURL;
+    } else {
+        albumCover.src = defaultCoverSrc;
+    }
+    updatePlaylistDisplay();
+}
+
+async function loadAndPlayTrack(index) {
+    if (index >= 0 && index < playlist.length) {
+        currentTrackIndex = index;
+        const file = playlist[currentTrackIndex];
+
+        audioPlayer.src = URL.createObjectURL(file);
+        audioPlayer.load();
+        audioPlayer.play();
+
+        manualTitleInput.value = '';
+        manualArtistInput.value = '';
+
+        try {
+            const metadata = await musicMetadata.parseBlob(file);
+            const tags = metadata.common;
+            
+            const title = tags.title || getCleanFileName(file.name);
+            const artist = tags.artist || 'Local File';
+            const cover = tags.picture && tags.picture.length > 0 ? tags.picture[0] : null;
+
+            displayTrackInfo(title, artist, cover);
+
+        } catch (error) {
+            console.error('Error reading music metadata:', error);
+            
+            const title = getCleanFileName(file.name);
+            const artist = 'Local File (No Metadata Found)';
+            
+            manualTitleInput.value = title;
+            manualArtistInput.value = '';
+
+            displayTrackInfo(title, artist, null);
+        }
+    } else {
+        audioPlayer.pause();
+        audioPlayer.src = '';
+        currentTrackIndex = 0;
+        updatePlaylistDisplay();
+    }
+}
+
+function playNextTrack() {
+    loadAndPlayTrack(currentTrackIndex + 1);
+}
+
+function updateManualDisplay() {
+    const title = manualTitleInput.value || 'Untitled Track';
+    const artist = manualArtistInput.value || 'Manual Entry';
+    
+    if (audioPlayer.src) {
+        displayTrackInfo(title, artist, null); 
+    }
+}
+
+musicFile.addEventListener('change', async (event) => {
+    playlist = Array.from(event.target.files).filter(file => file.type.startsWith('audio/'));
+
+    if (playlist.length > 0) {
+        loadAndPlayTrack(0); 
+    } else {
+        updatePlaylistDisplay(); 
+    }
+});
+
+audioPlayer.addEventListener('ended', playNextTrack);
+manualTitleInput.addEventListener('input', updateManualDisplay);
+manualArtistInput.addEventListener('input', updateManualDisplay);
+
+audioPlayer.addEventListener('play', () => {
+    albumCover.classList.add('rotate');
+});
+audioPlayer.addEventListener('pause', () => {
+    albumCover.classList.remove('rotate');
+});
+
+updatePlaylistDisplay(); 
+
+render(); // Initial render after all setup
+})();
+</script>
+</body>
+</html>
+</body><iframe data-testid="embed-iframe" style="border-radius:12px" src="https://open.spotify.com/embed/playlist/37i9dQZF1FbEnbS3zsgINl?utm_source=generator" width="100%" height="352" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+</html>
