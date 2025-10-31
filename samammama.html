@@ -736,3 +736,322 @@ render(); // Initial render after all setup
 </html>
 </body><iframe data-testid="embed-iframe" style="border-radius:12px" src="https://open.spotify.com/embed/playlist/37i9dQZF1FbEnbS3zsgINl?utm_source=generator" width="100%" height="352" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
 </html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hovering Pomodoro Timer</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the expansion transition */
+        #timer-widget {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            
+            /* Initial Compact State: Small, circular, highly visible */
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            
+            /* General styling */
+            background-color: #2D3748; /* Dark background */
+            color: #E2E8F0; /* Light text */
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            
+            /* Smooth transitions for all properties */
+            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            overflow: hidden;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            border: 2px solid transparent;
+        }
+
+        /* Hover State: Expanded card */
+        #timer-widget:hover {
+            width: 320px;
+            height: 200px;
+            border-radius: 0.75rem; /* Rounded corners for the card */
+            background-color: #4A5568; /* Slightly lighter dark background on hover */
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+            border-color: #63B3ED; /* Highlight border */
+        }
+        
+        /* The main time display is always centered */
+        #timer-display {
+            font-size: 1.5rem;
+            font-weight: 700;
+            line-height: 1; /* Adjust line height to center better */
+        }
+        #timer-widget:hover #timer-display {
+            font-size: 3rem; /* Larger font when expanded */
+            margin-bottom: 0.5rem;
+        }
+
+        /* Full controls (mode buttons, control buttons) are hidden initially */
+        #full-controls {
+            opacity: 0;
+            visibility: hidden;
+            height: 0;
+            pointer-events: none; /* Disable interaction when hidden */
+            transition: opacity 0.3s ease-in-out 0.2s, height 0.4s ease-in-out;
+            padding: 0 1rem;
+            width: 100%;
+        }
+
+        /* Show full controls on hover */
+        #timer-widget:hover #full-controls {
+            opacity: 1;
+            visibility: visible;
+            height: auto;
+            pointer-events: auto; /* Enable interaction when visible */
+        }
+
+        /* Small status text visible in both states */
+        #mode-status {
+             font-size: 0.75rem;
+             color: #A0AEC0;
+             transition: opacity 0.3s ease-in-out 0.2s;
+        }
+
+        /* Adjust the compact state for better centering */
+        #timer-widget:not(:hover) #mode-status {
+            opacity: 0; /* Hide status text when compact */
+        }
+
+        /* Button styling */
+        .control-btn {
+            @apply p-2 rounded-full font-semibold text-sm transition duration-150 ease-in-out transform hover:scale-105;
+        }
+
+        /* Mode button styling */
+        .mode-btn {
+            @apply px-3 py-1 text-xs rounded-full transition duration-150 ease-in-out;
+        }
+
+    </style>
+    <script>
+        // Use Inter font for consistency with Tailwind defaults
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+    <div class="p-8 text-center">
+        <h1 class="text-4xl font-bold text-gray-800">Your Focus Space</h1>
+        <p class="mt-2 text-gray-600">The Pomodoro Timer is in the bottom right corner. Hover over it to expand the controls!</p>
+    </div>
+
+    <!-- POMODORO TIMER WIDGET -->
+    <div id="timer-widget">
+        <!-- Status Text (Visible when expanded) -->
+        <div id="mode-status" class="mb-1"></div>
+
+        <!-- Main Time Display -->
+        <div id="timer-display">25:00</div>
+        
+        <!-- Full Controls (Only visible on hover) -->
+        <div id="full-controls" class="space-y-3 mt-2">
+            
+            <!-- Mode Selection Buttons -->
+            <div class="flex justify-center space-x-2">
+                <button id="pomodoro-mode" class="mode-btn bg-blue-500 text-white hover:bg-blue-600">Focus</button>
+                <button id="short-break-mode" class="mode-btn bg-green-500 text-white hover:bg-green-600">Short Break</button>
+                <button id="long-break-mode" class="mode-btn bg-red-500 text-white hover:bg-red-600">Long Break</button>
+            </div>
+
+            <!-- Control Buttons -->
+            <div class="flex justify-center space-x-4">
+                <button id="start-pause-btn" class="control-btn bg-gray-600 text-white hover:bg-gray-700">Start</button>
+                <button id="reset-btn" class="control-btn bg-gray-600 text-white hover:bg-gray-700">Reset</button>
+            </div>
+        </div>
+    </div>
+    <!-- END WIDGET -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const display = document.getElementById('timer-display');
+            const status = document.getElementById('mode-status');
+            const startPauseBtn = document.getElementById('start-pause-btn');
+            const resetBtn = document.getElementById('reset-btn');
+            const pomodoroBtn = document.getElementById('pomodoro-mode');
+            const shortBreakBtn = document.getElementById('short-break-mode');
+            const longBreakBtn = document.getElementById('long-break-mode');
+
+            // Time settings in seconds
+            const TIMES = {
+                'pomodoro': 25 * 60,
+                'shortBreak': 5 * 60,
+                'longBreak': 15 * 60
+            };
+
+            let currentMode = 'pomodoro';
+            let timeLeft = TIMES[currentMode];
+            let isRunning = false;
+            let interval = null;
+
+            // Utility function to format seconds into MM:SS
+            function formatTime(seconds) {
+                const minutes = String(Math.floor(seconds / 60)).padStart(2, '0');
+                const secs = String(seconds % 60).padStart(2, '0');
+                return `${minutes}:${secs}`;
+            }
+
+            // Update the UI display and document title
+            function updateDisplay() {
+                display.textContent = formatTime(timeLeft);
+                document.title = `(${formatTime(timeLeft)}) - Pomodoro`;
+            }
+
+            // Update mode indicator and colors
+            function updateModeStatus() {
+                let text, colorClass;
+                
+                // Remove previous color classes
+                pomodoroBtn.classList.remove('ring-2', 'ring-blue-300');
+                shortBreakBtn.classList.remove('ring-2', 'ring-green-300');
+                longBreakBtn.classList.remove('ring-2', 'ring-red-300');
+                
+                const widget = document.getElementById('timer-widget');
+                widget.classList.remove('border-blue-500', 'border-green-500', 'border-red-500');
+
+
+                switch (currentMode) {
+                    case 'pomodoro':
+                        text = 'Focus Time';
+                        colorClass = 'border-blue-500';
+                        pomodoroBtn.classList.add('ring-2', 'ring-blue-300');
+                        break;
+                    case 'shortBreak':
+                        text = 'Short Break';
+                        colorClass = 'border-green-500';
+                        shortBreakBtn.classList.add('ring-2', 'ring-green-300');
+                        break;
+                    case 'longBreak':
+                        text = 'Long Break';
+                        colorClass = 'border-red-500';
+                        longBreakBtn.classList.add('ring-2', 'ring-red-300');
+                        break;
+                }
+                status.textContent = isRunning ? `[RUNNING] ${text}` : text;
+                widget.classList.add(colorClass);
+            }
+
+            // Main countdown function
+            function countdown() {
+                if (timeLeft > 0) {
+                    timeLeft--;
+                    updateDisplay();
+                } else {
+                    pauseTimer();
+                    
+                    // Simple message box instead of alert
+                    const widget = document.getElementById('timer-widget');
+                    const messageBox = document.createElement('div');
+                    
+                    let nextMode;
+                    if (currentMode === 'pomodoro') {
+                        messageBox.textContent = "Time for a break! Switching to Short Break.";
+                        nextMode = 'shortBreak';
+                    } else {
+                        messageBox.textContent = "Break is over! Switching to Focus Time.";
+                        nextMode = 'pomodoro';
+                    }
+                    
+                    messageBox.className = 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-yellow-400 text-gray-900 p-4 rounded-lg shadow-2xl font-bold z-[2000] transition-opacity duration-500';
+
+                    document.body.appendChild(messageBox);
+                    setTimeout(() => {
+                        messageBox.style.opacity = '0';
+                        setTimeout(() => messageBox.remove(), 500);
+                    }, 3000);
+
+                    // Auto-switch mode
+                    switchMode(nextMode);
+                    resetTimer();
+                }
+            }
+
+            function startTimer() {
+                if (!isRunning) {
+                    isRunning = true;
+                    startPauseBtn.textContent = 'Pause';
+                    startPauseBtn.classList.replace('bg-gray-600', 'bg-yellow-600');
+                    interval = setInterval(countdown, 1000);
+                    updateModeStatus();
+                }
+            }
+
+            function pauseTimer() {
+                if (isRunning) {
+                    isRunning = false;
+                    startPauseBtn.textContent = 'Start';
+                    startPauseBtn.classList.replace('bg-yellow-600', 'bg-gray-600');
+                    clearInterval(interval);
+                    updateModeStatus();
+                }
+            }
+
+            function resetTimer() {
+                pauseTimer(); // Ensure it's paused
+                timeLeft = TIMES[currentMode];
+                updateDisplay();
+                startPauseBtn.textContent = 'Start';
+            }
+
+            function switchMode(mode) {
+                currentMode = mode;
+                resetTimer(); // Reset the timer for the new mode's duration
+                updateModeStatus();
+            }
+
+            // Event Listeners
+            startPauseBtn.addEventListener('click', () => {
+                if (isRunning) {
+                    pauseTimer();
+                } else {
+                    startTimer();
+                }
+            });
+
+            resetBtn.addEventListener('click', resetTimer);
+            pomodoroBtn.addEventListener('click', () => switchMode('pomodoro'));
+            shortBreakBtn.addEventListener('click', () => switchMode('shortBreak'));
+            longBreakBtn.addEventListener('click', () => switchMode('longBreak'));
+
+            // Initial setup
+            updateDisplay();
+            updateModeStatus();
+        });
+    </script>
+</body>
+</html>
+<!-- Instagram Support Link -->
+			<a href="https://instagram.com/yo__cjay" target="_blank" style="display: flex; align-items: center; font-size: 14px; text-decoration: none;" aria-label="Support me on Instagram: yo__cjay">
+				<!-- Instagram SVG Icon -->
+				<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent);">
+					<rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+					<path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+					<line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+				</svg>
+				<span style="margin-left: 4px; color: var(--text-color); font-weight: 600;">@yo__cjay</span>
+			</a>
+		</div>
+
